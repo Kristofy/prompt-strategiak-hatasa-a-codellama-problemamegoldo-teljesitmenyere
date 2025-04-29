@@ -1,0 +1,11 @@
+Prompt Template,Temperature,Top_p,Correct/Total,Easy,Medium,Hard,Very Hard
+simple,0.95,0.95,66/100,66/100,-,-,-
+cot,0.95,0.95,66/100,66/100,-,-,-
+role,0.95,0.95,64/100,64/100,-,-,-
+few-shot,0.95,0.95,71/100,71/100,-,-,-
+structured,0.95,0.95,63/100,63/100,-,-,-
+constraints,0.95,0.95,67/100,67/100,-,-,-
+least-to-most,0.95,0.95,64/100,64/100,-,-,-
+prompt-self-consistency,0.95,0.95,66/100,66/100,-,-,-
+expert,0.95,0.95,70/100,70/100,-,-,-
+comprehensive-expert,0.95,0.95,68/100,68/100,-,-,-
