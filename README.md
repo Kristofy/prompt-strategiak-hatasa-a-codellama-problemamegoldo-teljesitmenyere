@@ -2,7 +2,9 @@
 
 Beadandó az ELTE Informatikaon Kar Adattárházak és Adatbányászat MSC tárgyára
 
-(Overleaf projekt)[https://www.overleaf.com/project/680ff38883f9adae36741b1e]
+[Overleaf projekt](https://www.overleaf.com/project/680ff38883f9adae36741b1e)
+[Slides](https://ikelte-my.sharepoint.com/:p:/r/personal/ekzdy0_inf_elte_hu/_layouts/15/doc.aspx?sourcedoc=%7B50b68c70-7b72-4493-9312-1b6ec7ff8da1%7D&action=edit)
+
 
 ## Projekt célja
 Ez a projekt azt vizsgálja, hogy különböző prompt-stratégiák hogyan befolyásolják a CodeLlama és más nagy nyelvi modellek (LLM-ek) matematikai problémamegoldó képességét. A vizsgálat alapját a Project Euler feladatok adják.
