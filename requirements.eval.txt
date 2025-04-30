@@ -1,0 +1,7 @@
+python-dotenv
+numpy
+requests
+prettytable
+pandas
+openai
+tqdm

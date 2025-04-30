@@ -1,0 +1,13 @@
+services:
+  vastly:
+    build: .
+    network_mode: "host"
+    container_name: vastly_ai
+    user: 1000:1000
+    volumes:
+      - .:/app:Z,ro
+      - ./.cache:/app/.cache:z
+      - ./results_summary.csv:/app/results_summary.csv:z
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: ["python", "test.py"]

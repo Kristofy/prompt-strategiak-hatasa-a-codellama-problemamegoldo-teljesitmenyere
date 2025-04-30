@@ -13,6 +13,7 @@ import json
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARN)
 
 
 load_dotenv()
@@ -384,9 +385,7 @@ class VastAiGPUOffer:
                     break
 
                 delay = base_delay * (2**attempt)  # Exponential backoff
-                logger.warning(
-                    f"Rate limited, retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})"
-                )
+                logger.warning(f"Rate limited, retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})")
                 time.sleep(delay)
             else:
                 logger.error("Max retries exceeded for rate limiting")
@@ -400,9 +399,7 @@ class VastAiGPUOffer:
 
             results.update({offer.id: offer for offer in gpu_offers})
 
-        logger.info(
-            f"Found {len(results)}/{n * len(query_options)} unique offers"
-        )
+        logger.info(f"Found {len(results)}/{n * len(query_options)} unique offers")
 
         return list(results.values())
 
@@ -522,9 +519,7 @@ class OfferManager:
 
     def search_best_offers(self, n: int = 10) -> list[Offer]:
         """Search for the best GPU offers based on the model and input requirements"""
-        logger.info(
-            f"Searching for best GPU offers for {self.model_info.total_parameters:,} parameter model"
-        )
+        logger.info(f"Searching for best GPU offers for {self.model_info.total_parameters:,} parameter model")
         logger.info(
             f"Input config: {self.input_config.num_examples} examples, {self.input_config.max_input_len} input tokens, {self.input_config.max_output_len} output tokens"
         )
@@ -534,6 +529,15 @@ class OfferManager:
 
         # Create Offer objects for each GPU offer
         self.offers = [Offer.from_task(self.model_info, self.input_config, gpu_offer) for gpu_offer in gpu_offers]
+
+        # Filter out the ones that do not fit into gpu memory
+        self.offers = [
+            offer
+            for offer in self.offers
+            if (offer.model_info.total_size_gb + offer.model_info.kv_cache_size(self.input_config))
+            * config.gpu_memory_buffer_factor
+            < offer.gpu_offer.gpu_ram
+        ]
 
         # Sort by total cost (cheapest first)
         self.offers.sort(key=lambda x: x.total_cost)
@@ -551,46 +555,41 @@ class OfferManager:
 
         for i, offer in enumerate(self.offers[:limit], 1):
             # Format time as minutes:seconds
-            total_mins = int(offer.total_time // 60)
-            total_secs = int(offer.total_time % 60)
-            time_fmt = f"{total_mins}m {total_secs}s"
+            try:
 
-            table.add_row(
-                [
-                    i,
-                    offer.gpu_offer.offer_id,
-                    offer.gpu_offer.gpu_name,
-                    f"{offer.gpu_offer.gpu_ram:.1f}",
-                    f"{offer.gpu_offer.dph_total:.4f}",
-                    f"{offer.total_cost:.4f}",
-                    time_fmt,
-                    offer.batch_size,
-                ]
-            )
+                total_mins = int(offer.total_time // 60)
+                total_secs = int(offer.total_time % 60)
+                time_fmt = f"{total_mins}m {total_secs}s"
+
+                table.add_row(
+                    [
+                        i,
+                        offer.gpu_offer.offer_id,
+                        offer.gpu_offer.gpu_name,
+                        f"{offer.gpu_offer.gpu_ram:.1f}",
+                        f"{offer.gpu_offer.dph_total:.4f}",
+                        f"{offer.total_cost:.4f}",
+                        time_fmt,
+                        offer.batch_size,
+                    ]
+                )
+            except Exception as e:
+                logger.error(f"Error displaying offer {i}: {e}")
+                continue
 
         print(table)
 
         # Print summary for the best offer
         best = self.offers[0]
         print("\nBest offer details:")
-        print(
-            f"  GPU: {best.gpu_offer.gpu_name} with {best.gpu_offer.gpu_ram:.1f} GB VRAM"
-        )
+        print(f"  GPU: {best.gpu_offer.gpu_name} with {best.gpu_offer.gpu_ram:.1f} GB VRAM")
         print(
             f"  Performance: {best.gpu_offer.total_tflops:.1f} TFLOPS, {best.gpu_offer.gpu_mem_bw:.1f} GB/s memory bandwidth"
         )
-        print(
-            f"  Network: ↓ {best.gpu_offer.inet_down:.2f} GB/s, ↑ {best.gpu_offer.inet_up:.2f} GB/s"
-        )
-        print(
-            f"  Estimated download time: {best.model_download_time_estimate:.1f}s"
-        )
-        print(
-            f"  Estimated TTFT: {best.ttft:.3f}s, TPOT: {best.tpot*1000:.2f}ms"
-        )
-        print(
-            f"  Cost: ${best.gpu_offer.dph_total:.4f}/hr, Est. total: ${best.total_cost:.4f}"
-        )
+        print(f"  Network: ↓ {best.gpu_offer.inet_down:.2f} GB/s, ↑ {best.gpu_offer.inet_up:.2f} GB/s")
+        print(f"  Estimated download time: {best.model_download_time_estimate:.1f}s")
+        print(f"  Estimated TTFT: {best.ttft:.3f}s, TPOT: {best.tpot*1000:.2f}ms")
+        print(f"  Cost: ${best.gpu_offer.dph_total:.4f}/hr, Est. total: ${best.total_cost:.4f}")
 
     def accept_offer(self, offer: Offer, template: VastAIvLLMTemplate) -> None:
         """Accept the offer and start the instance"""
@@ -620,7 +619,6 @@ class OfferManager:
                 "target_state": "running",
                 "runtype": "ssh",
                 "onstart": template.onstart_cmd,
-
             }
         }
         headers = {
@@ -628,7 +626,6 @@ class OfferManager:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {config.vast_api_token}",
         }
-
 
         # Convert the request to a curl command
 
@@ -667,14 +664,11 @@ class OfferManager:
         contract_id = data.get("new_contract")
         logger.info(f"Instance created successfully with contract ID: {contract_id}")
 
-        # // Instance created successfully 
+        # // Instance created successfully
         # {
         #   "success": true,
         #   "new_contract": 1234568
         # }
-
-
-
 
 
 def main():
